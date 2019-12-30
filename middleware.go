@@ -1,4 +1,4 @@
-package goatkeeper // import "github.com/ashutoshgngwr/goatkeeper"
+package goatkeeper
 
 import (
 	"bytes"
