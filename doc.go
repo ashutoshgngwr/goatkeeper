@@ -12,8 +12,42 @@
 // limitations under the License.
 
 /*
-Package goatkeeper provides an HTTP middleware to enforce OpenAPI specification
-based validations on requests and responses of an API.
+Package goatkeeper is an HTTP middleware for Golang that validates
+HTTP requests and their responses according to types defined
+in OpenAPI Specification.
 
+Built using kin-openapi implementation!
+https://github.com/getkin/kin-openapi
+
+Usage:
+	spec, err := ioutil.ReadFile("./openapi-spec.yaml")
+	if err != nil {
+	  panic("unable to read openapi spec file")
+	}
+
+	middleware, err := goatkeeper.NewMiddlware(
+	  &goatkeeper.MiddlewareOptions{
+	    OpenAPISpec:      spec,
+	    ValidateResponse: true,
+	  })
+
+	if err != nil {
+	  panic("unable to initialize goatkeeper middleware")
+	}
+
+With Gorilla mux
+
+	r := mux.NewRouter()
+	r.Use(middleware)
+	// r.Handle ...
+
+With vanilla Golang
+
+	s := &http.Server{
+	  Addr:    ":8080",
+	  Handler: middlware(myAPIHandler),
+	}
+
+	log.Fatal(s.ListenAndServe())
 */
 package goatkeeper
