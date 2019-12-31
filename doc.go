@@ -12,8 +12,8 @@
 // limitations under the License.
 
 /*
-GoatKeeper is an HTTP middleware to enforce OpenAPI specification based
-validations on requests and responses of an API.
+Package goatkeeper provides an HTTP middleware to enforce OpenAPI specification
+based validations on requests and responses of an API.
 
 */
 package goatkeeper

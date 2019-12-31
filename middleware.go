@@ -14,16 +14,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-// MiddlewareResponse defines responses that middleware will
-// write to http requests if it decides to not propagate it
-// further.
+// MiddlewareResponse defines a response format that middleware will
+// write to http requests if their request body or response do not
+// adhere to defined OpenAPI specification.
 type MiddlewareResponse struct {
 	Status  int
 	Body    []byte
 	Headers http.Header
 }
 
-func (response *MiddlewareResponse) writeToHTTPResponseWriter(w http.ResponseWriter) {
+// writeToResponse writes the response to an http.ResponseWriter.
+func (response *MiddlewareResponse) writeToResponse(w http.ResponseWriter) error {
 	for key, values := range response.Headers {
 		for _, value := range values {
 			w.Header().Add(key, value)
@@ -31,13 +32,11 @@ func (response *MiddlewareResponse) writeToHTTPResponseWriter(w http.ResponseWri
 	}
 
 	w.WriteHeader(response.Status)
-
-	// TODO add error checking here
-	w.Write(response.Body)
+	_, err := w.Write(response.Body)
+	return err
 }
 
-// MiddlewareOptions defines options for configuring the
-// GoatKeeper middleware.
+// MiddlewareOptions defines options for configuring the GoatKeeper middleware.
 type MiddlewareOptions struct {
 	Logger                  logr.Logger
 	OpenAPISpec             []byte
@@ -46,8 +45,9 @@ type MiddlewareOptions struct {
 	InvalidResponseResponse *MiddlewareResponse // response to write if response is invalid
 }
 
-// DefaultMiddlewareOptions defines default options used by the
-// middleware.
+// DefaultMiddlewareOptions defines default options used by the middleware.
+// These options are only used if a option isn't specified when initializing
+// the middleware.
 var DefaultMiddlewareOptions = MiddlewareOptions{
 	Logger:           logrtesting.NullLogger{},
 	ValidateResponse: true,
@@ -59,12 +59,15 @@ var DefaultMiddlewareOptions = MiddlewareOptions{
 	},
 }
 
+// middleware implements the goatkeeper middleware.
 type middleware struct {
 	*MiddlewareOptions
 	*openapi3filter.Router
 	context.Context
 }
 
+// validateRequest validates the given request with data from the parsed
+// OpenAPI specification.
 func (m *middleware) validateRequest(r *http.Request) error {
 	route, pathParams, err := m.FindRoute(r.Method, r.URL)
 	if err != nil {
@@ -78,22 +81,28 @@ func (m *middleware) validateRequest(r *http.Request) error {
 	})
 }
 
+// validateResponse validates the given response with data from the parsed
+// OpenAPI specification.
 func (m *middleware) validateResponse(recorder *httpResponseRecorder) error {
 	return openapi3filter.ValidateResponse(m, &openapi3filter.ResponseValidationInput{
-		Status: recorder.status,
-		Header: recorder.headers,
-		Body:   ioutil.NopCloser(bytes.NewReader(recorder.body)),
+		Status: recorder.Status,
+		Header: recorder.Headers,
+		Body:   ioutil.NopCloser(bytes.NewReader(recorder.Body)),
 	})
 }
 
+// serve is the actual goatkeeper middleware.
 func (m *middleware) serve(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO create sub-logger with values.
+		logger := m.Logger.WithValues("Method", r.Method, "URL", r.URL)
 
 		err := m.validateRequest(r)
 		if err != nil {
-			m.InvalidRequestResponse.writeToHTTPResponseWriter(w)
-			m.Logger.Error(err, "invalid request data")
+			logger.Error(err, "invalid request data")
+			if err = m.InvalidRequestResponse.writeToResponse(w); err != nil {
+				logger.Error(err, "unable to write response")
+			}
+
 			return
 		}
 
@@ -107,17 +116,21 @@ func (m *middleware) serve(next http.Handler) http.Handler {
 
 		err = m.validateResponse(recorder)
 		if err != nil {
-			m.InvalidResponseResponse.writeToHTTPResponseWriter(w)
-			m.Logger.Error(err, "invalid response data")
+			logger.Error(err, "invalid response data")
+			if err = m.InvalidResponseResponse.writeToResponse(w); err != nil {
+				logger.Error(err, "unable to write response")
+			}
 			return
 		}
 
-		recorder.writeToHTTPResponseWriter(w)
+		if err = recorder.writeToResponse(w); err != nil {
+			logger.Error(err, "unable to write response")
+		}
 	})
 }
 
-// NewMiddleware creates a new HTTP middleware that will use OpenAPI Spec to
-// validate all requests and responses.
+// NewMiddleware creates a new HTTP middleware that will use the given
+// OpenAPI Spec to validate all requests and their responses.
 func NewMiddleware(opts *MiddlewareOptions) (func(http.Handler) http.Handler, error) {
 	err := mergo.Merge(opts, DefaultMiddlewareOptions)
 	if err != nil {
