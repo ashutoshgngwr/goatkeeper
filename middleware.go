@@ -1,7 +1,6 @@
 package goatkeeper
 
 import (
-	"bytes"
 	"context"
 	"io/ioutil"
 	"net/http"
@@ -50,12 +49,16 @@ type MiddlewareOptions struct {
 // the middleware.
 var DefaultMiddlewareOptions = MiddlewareOptions{
 	Logger:           logrtesting.NullLogger{},
-	ValidateResponse: true,
+	ValidateResponse: false,
 	InvalidRequestResponse: &MiddlewareResponse{
-		Status: http.StatusBadRequest,
+		Headers: http.Header{},
+		Status:  http.StatusBadRequest,
+		Body:    []byte{},
 	},
 	InvalidResponseResponse: &MiddlewareResponse{
-		Status: http.StatusInternalServerError,
+		Status:  http.StatusInternalServerError,
+		Headers: http.Header{},
+		Body:    []byte{},
 	},
 }
 
@@ -83,11 +86,21 @@ func (m *middleware) validateRequest(r *http.Request) error {
 
 // validateResponse validates the given response with data from the parsed
 // OpenAPI specification.
-func (m *middleware) validateResponse(recorder *httpResponseRecorder) error {
+func (m *middleware) validateResponse(recorder *httpResponseRecorder, r *http.Request) error {
+	route, pathParams, err := m.FindRoute(r.Method, r.URL)
+	if err != nil {
+		return err
+	}
+
 	return openapi3filter.ValidateResponse(m, &openapi3filter.ResponseValidationInput{
+		RequestValidationInput: &openapi3filter.RequestValidationInput{
+			Request:    r,
+			PathParams: pathParams,
+			Route:      route,
+		},
 		Status: recorder.Status,
 		Header: recorder.Headers,
-		Body:   ioutil.NopCloser(bytes.NewReader(recorder.Body)),
+		Body:   ioutil.NopCloser(recorder.Body),
 	})
 }
 
@@ -111,10 +124,10 @@ func (m *middleware) serve(next http.Handler) http.Handler {
 			return
 		}
 
-		recorder := &httpResponseRecorder{}
+		recorder := newHTTPResponseRecorder()
 		next.ServeHTTP(recorder, r)
 
-		err = m.validateResponse(recorder)
+		err = m.validateResponse(recorder, r)
 		if err != nil {
 			logger.Error(err, "invalid response data")
 			if err = m.InvalidResponseResponse.writeToResponse(w); err != nil {
