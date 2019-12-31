@@ -3,7 +3,7 @@
 [![Build status](https://img.shields.io/github/workflow/status/ashutoshgngwr/goatkeeper/Integration)](https://github.com/ashutoshgngwr/goatkeeper/actions)
 [![codecov](https://codecov.io/gh/ashutoshgngwr/goatkeeper/branch/master/graph/badge.svg)](https://codecov.io/gh/ashutoshgngwr/goatkeeper)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/616e6e1d40124408a360a651308ae133)](https://www.codacy.com/manual/ashutoshgngwr/goatkeeper?utm_source=github.com&utm_medium=referral&utm_content=ashutoshgngwr/goatkeeper&utm_campaign=Badge_Grade)
-[![Latest release](https://img.shields.io/github/v/release/ashutoshgngwr/goatkeeper.svg)](https://github.com/ashutoshgngwr/goatkeeper/releases)
+[![Latest release](https://img.shields.io/github/v/tag/ashutoshgngwr/goatkeeper.svg?color=orange&label=release)](https://github.com/ashutoshgngwr/goatkeeper/releases)
 [![Godoc](https://img.shields.io/badge/godoc-reference-5272B4.svg)](https://godoc.org/github.com/ashutoshgngwr/goatkeeper)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](https://opensource.org/licenses/Apache-2.0)
 
