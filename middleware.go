@@ -1,6 +1,7 @@
 package goatkeeper
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"net/http"
@@ -100,7 +101,7 @@ func (m *middleware) validateResponse(recorder *httpResponseRecorder, r *http.Re
 		},
 		Status: recorder.Status,
 		Header: recorder.Headers,
-		Body:   ioutil.NopCloser(recorder.Body),
+		Body:   ioutil.NopCloser(bytes.NewBuffer(recorder.Body.Bytes())),
 	})
 }
 
