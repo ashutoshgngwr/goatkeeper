@@ -288,17 +288,40 @@ paths:
 `,
 		)
 
-		middleware, err := NewMiddleware(&MiddlewareOptions{
-			OpenAPISpec:      spec,
-			ValidateResponse: true,
+		t.Run("test invalid response", func(t *testing.T) {
+			middleware, err := NewMiddleware(&MiddlewareOptions{
+				OpenAPISpec:      spec,
+				ValidateResponse: true,
+			})
+
+			assert.NoError(t, err)
+			handler := middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+			req, err := http.NewRequest(http.MethodGet, "/test", bytes.NewBuffer([]byte{}))
+			assert.NoError(t, err)
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, req)
+			assert.Equal(t, DefaultMiddlewareOptions.InvalidResponseResponse.Status, recorder.Code)
 		})
 
-		assert.NoError(t, err)
-		handler := middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-		req, err := http.NewRequest(http.MethodGet, "/test", bytes.NewBuffer([]byte{}))
-		assert.NoError(t, err)
-		recorder := httptest.NewRecorder()
-		handler.ServeHTTP(recorder, req)
-		assert.Equal(t, DefaultMiddlewareOptions.InvalidResponseResponse.Status, recorder.Code)
+		t.Run("test valid response", func(t *testing.T) {
+			middleware, err := NewMiddleware(&MiddlewareOptions{
+				OpenAPISpec:      spec,
+				ValidateResponse: true,
+			})
+
+			assert.NoError(t, err)
+			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Header().Add("Content-type", "application/json")
+				w.Write([]byte("10"))
+			}))
+
+			req, err := http.NewRequest(http.MethodGet, "/test", bytes.NewBuffer([]byte{}))
+			assert.NoError(t, err)
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, req)
+			assert.NotEqual(t, DefaultMiddlewareOptions.InvalidResponseResponse.Status, recorder.Code)
+			assert.Equal(t, []byte("10"), recorder.Body.Bytes())
+		})
 	})
 }
